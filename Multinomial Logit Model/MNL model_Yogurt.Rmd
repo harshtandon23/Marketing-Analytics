@@ -1,0 +1,128 @@
+---
+title: 'Homework Solutions: MNL model'
+author: "Harsh Tandon"
+date: "Due on March 2, 2020"
+output:
+  html_document: default
+  pdf_document: default
+  toc: yes
+graphics: yes
+fontsize: 12pt
+urlcolor: blue
+---
+
+# First, load the data
+
+```{r message=FALSE, warning=FALSE}
+#install.packages("mlogit") #it needs R version to be 3.5 or newer
+#install.packages("data.table")
+library(mlogit)
+library(data.table)
+yogurtdata = fread("yogurt_3brands.csv")
+
+#change the names, so that the software can recognize which column is for which choice alternative
+#The names of each choice alternative needs to be consistent with those in the Choice variable
+
+setnames(yogurtdata, c("Feature_S", "Feature_D", "Feature_Y", "HH Size", "Pan ID"), 
+                c("Feature.Stonyfield", "Feature.Dannon", "Feature.Yoplait",
+                  "HHSize", "PanID"))
+setnames(yogurtdata, c("Price_S", "Price_D", "Price_Y"), 
+                  c("Price.Stonyfield", "Price.Dannon", "Price.Yoplait"))
+
+```
+
+# Second, set up the model
+
+Please get ready the data for estimating the following MNL model, specified using the latent utility functions for each of the three brands
+
+- Stonyfield $U_{is}=   \beta_1Price_s+\beta_2Feature_s+\epsilon_{is}$
+- Yoplait    $U_{iy}=\beta_{0y}+\beta_1Price_y+\beta_2Feature_y+\beta_3Income_i+\beta_4HHsize_i+\epsilon_{iy}$
+- Dannon     $U_{id}=\beta_{0d}+\beta_1Price_d+\beta_2Feature_d+\beta_3Income_i+\beta_4HHsize_i+\epsilon_{id}$
+
+You need to create an additional column in yogurtdata, called "Choice", indicating the choices made by each person, and set this column to be a factor. 
+
+```{r}
+# Create a Choice variable that lists the choice made
+yogurtdata[Stonyfield==1, Choice := "Stonyfield"]
+yogurtdata[Yoplait==1, Choice := "Yoplait"]
+yogurtdata[Dannon==1, Choice := "Dannon"]
+
+yogurtdata[, Choice := as.factor(Choice)]
+
+yogurtdata = yogurtdata[, -c("Stonyfield","Yoplait","Dannon")]
+head(yogurtdata)
+```
+
+
+Then you need to setup the data format that is understandable by the package, using `mlogit.data()`
+
+```{r}
+yLogitData = mlogit.data(yogurtdata[,-c("Index" )], shape="wide", 
+                 choice="Choice", id="PanID", varying=1:6)
+head(yLogitData)
+
+```
+
+# Third, now estimate the model
+The format for using `mFormula()` is the following
+
+Choice ~ X different, beta same
+        |X same, beta same
+        |X different, beta different
+
+
+```{r}
+featureFormula = mFormula(Choice ~ Feature + Price | Income + HHSize)
+
+model1 = mlogit(featureFormula, yLogitData, reflevel = 'Stonyfield')
+summary(model1)
+```
+
+
+> Q: Please interpret the model estimation results. 
+
+
+- The intercept for Yoplait is positive and for Dannon is negative, indicating that everything else being equal, Dannon is the least preferred brand. 
+- The `Feature` parameter for all brands are the same, and it is positive and statistically significant.
+- The `Price` parameter for all brands are the same, and it is negative and statistically significant.
+- The `Income` parameter for Yoplait is negative and for Dannon is positive, meaning holding everything else the same, the families with higher income tend to prefer Dannon; with not slightly higher income tend to prefer Stonyfield. 
+- The `HHsize` parameter for both Yoplait and Dannon is negative, meaning holding everything else constant, the larger families tend to prefer Stonyfield over Dannon and Yoplait; with families size not so large, they tend to prefer Dannon over Yoplait.
+
+# Change the model
+
+In the above model, all brands are constrained to have the same price parameter. Re-estimate the above model, but instead allow the price parameter to be brand specific, that is different across brands.
+
+```{r}
+featureFormula1 = mFormula(Choice ~ Feature | Income + HHSize | Price)
+
+model2 = mlogit(featureFormula1, yLogitData, reflevel = 'Stonyfield')
+summary(model2)
+```
+
+```{r}
+prob = predict(model1,yLogitData)
+probnew=predict(model2,yLogitData)
+colMeans(prob)
+colMeans(probnew)
+```
+
+> Q: Compare the above two models 
+
+- First model, constrained the price parameters to be the same across brands
+- Second model, allow the price parameters to be different across brands
+
+in the following: 
+- First, based on the price parameters, do you think it makes sense to constrain them to be the same across the three brands?
+- Second, compare the model fits, using the AIC values that we learned before
+$$AIC=-2 LogLikelihood + 2K$$
+K is the number of model parameters.
+
+__Constraining coefficient of Price to be same across the three brands would mean that, if price changes by one unit, the impact of this change on all three brands would be the same. However, we want to measure the impact of price on each brand individually, thus constraining them to be the same across all three bands does not make sense.__ \n
+
+__Model1 constraints the coefficient of Price to be same across the three brands, however, Model2 allows price coefficients to vary individually with the brand. Model2 could give a deeper insight into how one's choice would be affected if the price of one brand changes (say Yoplait gives discount), but price of other brands remain the same.__
+
+```{r}
+AIC(model1,model2)
+```
+
+__*Comparing models using AIC:* We see that, although logically we want Model2 to be our model, the AIC score of Model1 is lower than AIC score of Model2. The AIC scores suggest that we should go with Model1, however, AIC is just a statistical tool to corroborate with our intuition. It is possible that with more data at our disposal, AIC score of Model2 could be less than Model1. Thus, a more concrete statistical analysis could be presented if more data was present. So, in this scenario, statistically, we would go with Model1, intuitively we would go with Model2.__
