@@ -1,0 +1,208 @@
+---
+title: "Homework 1 Part 2 for Marketing Aanlytics"
+subtitle: "Regression and Endogeneity"
+author: "Harsh Tandon"
+date: "Due on Wednesday, January 22, 2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Part II Endogeneity and 2SLS
+
+## Question 1
+1. Load the data file `health_inclass.csv`, conduct simple regression without correcting for endogeneity, and try to answer the question whether having health insurance leads to higher or lower medical expenses. In this exercise, add more variables from the data, you can create dummy variables, add meaningful interaction variables. Try at least three models (different specifications from the example in class), and find the best one among the three, interpret the model results. \
+Present all the three model results, and answer the following questions:
+
+(1) Based on what metrics did you choose the "best" model?
+(2) Do you think the endogeneity of the $HealthIns$ variable still exists? Why or why not?
+ 
+### Set working directory, Import libraries, Read data, Print summary statistics
+
+```{r warning=FALSE}
+setwd("D:/2nd Qtr Study Material/Marketing Analytics/Lecture 2 Regression/Lecture 2 Regression")
+#Install required packages
+#install.packages("stargazer")
+#install.packages("lmtest")
+#install.packages("VIF")
+#install.packages("AER")
+library(stargazer)
+library(ggplot2)
+library(graphics)
+library(lmtest)
+library(VIF)
+library(AER)
+
+
+data = read.csv("health_inClass.csv", header = TRUE) #read data
+
+stargazer(data, type="text", median=TRUE, iqr=TRUE, digits=2, title="Descriptive Statistics") #print summary statistics  
+```
+
+### Check for correlation
+
+We see that 'blackhisp' is highly correlated with 'black' and 'hisp'.\
+We also notice that 'healthinsu' is highly correlated with 'private'.
+
+```{r}
+X = data[, 3:(length(data)-1)] #extract independent variables
+corr1 = cor(X) #find correlation
+corrplot::corrplot(corr1) #plot correlation plot
+``` 
+
+### Create factor and dummy variables and log transform medical expenses
+
+```{r}
+#Create dummy variables
+data$healthinsu = factor(data$healthinsu)
+data$female = factor(data$female) 
+data$marry = factor(data$marry)
+data$blackhisp = factor(data$blackhisp)
+data$hisp = factor(data$hisp)
+data$black = factor(data$black)
+data$vegood = factor(data$vegood)
+data$good = factor(data$good)
+data$fair = factor(data$fair)
+data$poor = factor(data$poor)
+data$msa = factor(data$msa)
+data$private = factor(data$private)
+data$priolist = factor(data$priolist)
+
+#log transform medical expenses
+hist(data$medexpense)
+data$logMedExpense = log(data$medexpense)
+hist(data$logMedExpense)
+```
+
+### Run regression!
+
+```{r warning=FALSE}
+
+#==================== Run regressions =========================
+
+#for res1, we will take all the available attributes
+res1 = lm(logMedExpense ~ healthinsu + illnesses + age + female + income + educyr + marry + blackhisp + hisp + black + vegood + good + fair + msa + private + priolist, data = data)
+
+#for res2, we remove 'black' & 'hisp' since they are highly correlated with 'blackhisp'
+#remove 'private' as it is highly correlated with 'healthinsu'
+res2 = lm(logMedExpense ~ healthinsu + illnesses + age + female + income + educyr + marry + blackhisp + vegood + good + fair + msa + priolist, data = data)
+
+#for res3 interact 'healthinsu' with 'msa'
+res3 = lm(logMedExpense ~ healthinsu*msa + illnesses + age + female + income + educyr + marry + blackhisp + vegood + good + fair + priolist, data = data)
+
+#for res4 we interact 'healthinsu' with 'msa', 'illnesses' with 'age', 'illnesses' with 'priolist' and 'income' with 'educyr'
+res4 = lm(logMedExpense ~ healthinsu*msa + illnesses*age + illnesses*priolist + income*educyr + female + marry + blackhisp + vegood + good + fair, data = data)
+
+#for our final model we remove 'marry' as it is not significant
+res5 = lm(logMedExpense ~ healthinsu*msa + illnesses*age + illnesses*priolist + income*educyr + female + blackhisp + vegood + good + fair, data = data)
+
+
+
+# =================== Compare Models ======================
+
+#compare model-3 and model-4
+AIC(res3, res4) #since AIC score for model 4 is lower, it is better
+BIC(res3, res4) #since BIC score for model 4 is lower, it is better
+
+#compare model-4 and model-5
+anova(res4, res5, test = "Chisq") #the p-val shows that keeping 'marry' does not improve the model significantly. Therefore, model-5 (without 'marry') is better. 
+#At this point we conclude, model-5 is better than all models presented here.
+
+# =================== Show Results =========================
+ 
+#show regression results
+stargazer(res1, res2, res3, res4, res5,
+          title="Regression Results", type="text", 
+          column.labels=c("Model-1", "Model-2", "Model-3", "Model-4", "Model-5"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+```
+
+### Results
+
+Interpretation of the best model (Model-5):
+
+* **healthinsu**: Having a medical insurance is associated with an increase in medical expenses by 22.6% versus not having a medical insurance.
+* **illnesses**: One unit increase in total illnesses in a year is associated with an increase in medical expenses by 94.1%.
+* **age**: One year increase in age is associated with an increase in medical expenses by 0.3%.
+* **female**: A female patient is associated with 7.1% higer medical expenses than a male. 
+* **income**: One unit increase in income is associated with an increase in medical expenses by 0.6%.
+* **educyr**: One unit increase in years of education is associated with 1.4% increase in medical expenses.
+* **blackhisp**: The medical expenses, when the patient's race is either black or hispanic, is 15.4% lower than when the race is neither black nor hispanic.
+* **vegood**: The medical expenses when the patient's condition is very good is 1% higher than when the condition is poor. However, this result is not significant, since the p-value is greater than 0.05.
+* **good**: The medical expenses when the patient's condition is good is 9.1% higher than when the condition is poor.
+* **fair**: The medical expenses when the patient's condition is fair is 25% higher than when the condition is poor.
+* **priolist**: Having a condition listed on priority list is associated with 79.2% increase in medical expenses.
+* **healthinsu:msa**: For a person located in an urban area, the impact of having a medical insurance on medical expenses decreases by 19.3% versus when the person is not located in an urban area.
+* **illnesses:age**: As age of person increases by one year, the impact of illnesses on medical expenses decreases by 0.4%. 
+* **illnesses:priolist**: For a person having a condition listed on the priority list, the impact of illnesses on medical expenses decreases by 28.7% versus when the condition is not listed on the priority list. 
+* **income:educyr**: As years of education increases by one unit, the impact of income on medical expenses decreases by 0.04%. 
+
+
+
+
+
+#### Based on what metrics did you choose the "best" model?
+
+Model-1 consists of all the attributes present in our dataset (except ssiratio and indid). From this point we start with a backward elimination process. We remove the attributes 'black' and 'hispanic' since they both were highly correlated with 'blackhisp'. We also remove the attribute 'private' as it was highly correlated with our key independent variable 'healthinsu'.\
+ \
+We introduce our first interaction term in model-3 as 'healthinsu:msa'. In model-4 we introduce two more interaction terms as 'illnesses:age' and 'illnesses:priolist'. To check if these additional interaction terms significantly improved our model, we compare model-3 and model-4. Since these two models are not nested, we compare them using AIC and BIC tests. The smaller AIC BIC values for model-4 suggested that model-4 is significantly better than model-3.\
+ \
+At this stage, we have an insignificant attribute 'marry' in model-4. We create a new model called model-5 without the 'marry' attribute. To test if the presence of attribute 'marry' significantly improves our model, we compare model-4 and model-5. Since these are nested models, we use Likelihood ratio test for comparison. The insignificant p-value from this test suggests that presence of 'marry' does not significantly improve our model. Therefore, model-5 (without attribute 'marry') is better. \
+ \
+Hence, out of all the models we disscussed, model-5 best fits our data!
+
+
+#### Do you think the endogeneity of the $HealthIns$ variable still exists? Why or why not?
+
+Yes!'Healthinsu' is still endogeneous. There could be an omitted variable (like "previous medical history" or 'whether patient exercises') which is correlated with both key independent variable and dependent variable i.e. with 'healthinsu' and 'medExpense'. This omitted variable will cause an omitted variable bias and in turn cause endogineity.\
+Also, theoretically we would assume that having a health insurance would lower your medical expenses. This assumption is violated by our OLS model, which suggests having health insurance will increase medical expenses. Therefore, we could assume that our model has endogineity.  \
+
+
+## Question 2
+
+2. Suppose the $HealthIns$ is still endogenous, even with your "best" model, use `SSIRatio` variable as your instrument, and conduct the following exercises\
+ a) Use `ivreg()` conduct the 2SLS estimates for your "best" model, while correcting for endogeneity of the $HealthIns$ variable. \
+ b) Compare the results from this model with those from the simple OLS approach, interms of model fit, parameter interpretations, and your answers to the question "whether having health insurance leads to higher or lower medical expnses."
+ 
+### Run Ivreg/2SLS model
+
+```{r}
+#run Ivreg/2SLS model
+model1 = ivreg(logMedExpense ~ healthinsu + msa + illnesses*age + illnesses*priolist + income*educyr + female + blackhisp + vegood + good + fair | ssiratio + msa + illnesses*age + illnesses*priolist + income*educyr + female + blackhisp + vegood + good + fair, data = data)
+
+summary(model1, diagnostics = TRUE)
+```
+
+### Results
+
+Wald Test for our model shows a significant p-value. This means our 2SLS fits our data significantly!\
+We also notice that residual standard error of 2SLS model is greater than OLS model (1.330 > 1.214). This happens because in 2SLS, stage 2 of regression is based on estimates of stage 1 regression. These subsequent stages of regression causes the standard errors to increase.
+
+```{r warning=FALSE}
+# =================== Compare Results =========================
+ 
+#show regression results
+stargazer(res5, model1,
+          title="Regression Results", type="text",
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+```
+
+Interpretation of the IVreg/2SLS model:
+
+* **healthinsu**: Having a medical insurance is associated with an 108% decrease in medical expenses versus not having a medical insurance. __This is opposite of what OLS model had predicted!__
+* **illnesses**: One unit increase in total illnesses in a year is associated with an increase in medical expenses by 96.6%.
+* **age**: One year increase in age is associated with an decrease in medical expenses by 0.7%. However this result is not significant as the p-value is greater than 0.05. 
+* **priolist**: Having a condition listed on priority list is associated with 76.9% increase in medical expenses.
+* **income**: One unit increase in income is associated with an increase in medical expenses by 1.5%.
+* **educyr**: One unit increase in years of education is associated with 4.3% increase in medical expenses.
+* **female**: A female patient is associated with 2.1% lower medical expenses than a male. However this result is not significant as the p-value is greater than 0.05.
+* **blackhisp**: The medical expenses, when the patient's race is either black or hispanic, is 20.9% lower than when the race is neither black nor hispanic.
+* **vegood**: The medical expenses when the patient's condition is very good is 2.1% higher than when the condition is poor. However, this result is not significant, since the p-value is greater than 0.05.
+* **good**: The medical expenses when the patient's condition is good is 8.7% higher than when the condition is poor.
+* **fair**: The medical expenses when the patient's condition is fair is 25% higher than when the condition is poor.
+* **illnesses:age**: As age of person increases by one year, the impact of illnesses on medical expenses decreases by 0.5%. 
+* **illnesses:priolist**: For a person having a condition listed on the priority list, the impact of illnesses on medical expenses decreases by 24% versus when the condition is not listed on the priority list. 
+* **income:educyr**: As years of education increases by one unit, the impact of income on medical expenses decreases by 0.1%. 
+\
+
+__Based on our 2SLS model, we can say that having a health insurance decreases our medical expenses! And this is in line with our theoretical assumption! __

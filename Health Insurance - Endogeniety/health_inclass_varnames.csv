@@ -1,0 +1,25 @@
+indid,person ID
+medexpense,"total medical expenses, including insurance premium, and out of pocket payments for visiting doctor, hospital and drugs. "
+healthinsu,"1- Yes, with health insurance; 0- no insurance"
+illnesses,Total number of times that the person was sick in the year. 
+age,age
+female,"1-female, 0- male"
+income,household annual income
+ssiratio,"ratio of supplemental social income, over total household income. The highest value can be one, meaning the person has no income other than the help from the federal government"
+educyr,number of years of eduction
+marry,"1- married, 0-otherwise"
+blackhisp,"1- race is either black or hispanic, 0- race is neither black nor hispanic"
+hisp,1- race is hispanic; 0-race is not hispanic
+black,1- race is black; 0- race is not black
+vegood,1- health condition is very good; 0-otherwise
+good,1- health condition is good; 0-otherwise
+fair,1- health condition is fair; 0-otherwise
+poor,1- health condition is poor; 0-otherwise
+msa,1- person is located in urban area; 0-otherwise
+private,1- for private health insurance; 0-otherwise
+priolist,1- if the condition is on a priority condition list. 
+,"These ""priority conditions"" is defined due to their prevalence, expense, or relevance to"
+,"policy. Includes cancer, diabetes, emphysema, high cholesterol, HIV/AIDS,"
+,"hypertension, ischemic heart disease, stroke, arthritis, asthma, gall"
+,"bladder disease, stomach ulcers, back problems of any kind, Alzheimer's"
+,"disease and other dementias, and depression and anxiety disorders, and others."
